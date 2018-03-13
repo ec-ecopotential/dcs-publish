@@ -14,6 +14,7 @@ import string
 import pytz
 from datetime import datetime, timedelta
 import pysftp
+import traceback
 
 sys.path.append('/opt/anaconda/bin/')
 import cioppy
@@ -47,8 +48,6 @@ def sftp_upload(product_path, hostname, user, passwd, target_dir):
 
     ciop.log('INFO', 'Connecting to %s' % hostname)
     
-    
-    
     try:
         
         cnopts = pysftp.CnOpts()
@@ -60,10 +59,17 @@ def sftp_upload(product_path, hostname, user, passwd, target_dir):
             sftp.put(product_path, preserve_mtime=True)
             
     except IOError as e:
-        ciop.log('ERROR','I/O error({0}): {1} {2}'.format(e.errno, e.filename, e.strerror))
+        #ciop.log('ERROR','I/O error({0}): {1} {2}'.format(e.errno, e.filename, e.strerror))
+        ciop.log('ERROR', 'Unexpected error: %s' % e)
+        ciop.log('ERROR', ''.join(traceback.format_stack()))
+        
         return False  
-    except:
-        ciop.log('ERROR','Unexpected error:', sys.exc_info()[0])
+    
+    except Exception as e:
+        #ciop.log('ERROR','Unexpected error:', sys.exc_info()[0])
+        ciop.log('ERROR', 'Unexpected error: %s' % e)
+        ciop.log('ERROR', ''.join(traceback.format_stack()))
+
         return False  
     
     return True
@@ -90,9 +96,9 @@ def main():
     config = configparser.ConfigParser()
     config.readfp(buf)
 
-    hostname = config.get('ftp', 'hostname')
-    user = config.get('ftp', 'user')
-    passwd = config.get('ftp', 'passwd')
+    hostname = str(config.get('ftp', 'hostname'))
+    user = str(config.get('ftp', 'user'))
+    passwd = str(config.get('ftp', 'passwd'))
     
     # Loops over all the inputs
     for input in sys.stdin:

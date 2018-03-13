@@ -7,9 +7,9 @@
           <parameter id="update" type="opensearch" target="dct:modified" scope="runtime" minOccurs="0" title="Time of Interest interval" abstract="Time of Interest interval in ISO 8601 (e.g. 2018-03-12T00:00:00Z/2018-03-15T00:00:00Z)">2018-03-12T00:00:00Z/2018-03-15T00:00:00Z</parameter> 
               <parameter id="q" type="opensearch" target="searchTerms" scope="runtime" minOccurs="0" title="Free text" abstract="Free text"></parameter> 
               <parameter id="count" type="opensearch" target="count" scope="runtime" minOccurs="0" title="Count" abstract="Count">2</parameter>
-           <parameter id="api_key" title="Terradue API key" abstract="Terradue API key" maxOccurs="1" scope="runtime" type="LiteralData"></parameter>
+           <parameter id="api_key" title="Terradue API key" abstract="Terradue API key" maxOccurs="1" scope="runtime" type="LiteralData">AKCp2VokXW9QGM3RC3WUevapB1k1vSLgyuj5JvEidwTv1jQjTN21UQZuqS9JbP9jywr7o7DUC</parameter>
            <parameter id="config_url" title="Configuration file" abstract="Configuration file" maxOccurs="1" scope="runtime" type="LiteralData">https://store.terradue.com/ec-ecopotential/config/cnr-sftp-config.ini</parameter>
-          <parameter id="base_path" title="sFTP base path" abstract="sFTP base path" maxOccurs="1" scope="runtime" type="LiteralData">/lustre/ecopotential/incoming/PAs/Donana/EO_Data/Sentinel2/Raw</parameter>
+          <parameter id="base_path" title="sFTP base path" abstract="sFTP base path" maxOccurs="1" scope="runtime" type="LiteralData">/lustre/ecopotential/incoming/test-t2</parameter>
       </defaultParameters>
       <defaultJobconf>
         <property id="mapred.task.timeout">99000000</property>
