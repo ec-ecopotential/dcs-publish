@@ -34,9 +34,9 @@ class NodeATestCase(unittest.TestCase):
         #with self.assertRaises(py_compile.PyCompileError):
         #  py_compile.compile('/home/fbrito/dcs-otb-S1-one-to-one/src/main/app-resources/otb/run', doraise=True)
         try:
-          py_compile.compile('/home/fbrito/dcs-otb-S1-one-to-one/src/main/app-resources/otb/run', doraise=True)
+          py_compile.compile('../main/app-resources/publish/run', doraise=True)
         except:
-          self.fail('failed to compile src/main/app-resources/otb/run')
+          self.fail('failed to compile src/main/app-resources/publish/run')
  
 if __name__ == '__main__':
     unittest.main()

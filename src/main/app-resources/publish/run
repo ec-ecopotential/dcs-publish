@@ -8,6 +8,12 @@ import tarfile
 import atexit
 import glob
 import configparser
+import requests
+import StringIO
+import string
+import pytz
+from datetime import datetime, timedelta
+import pysftp
 
 sys.path.append('/opt/anaconda/bin/')
 import cioppy
@@ -21,6 +27,7 @@ ERR_PUBLISH = 30
 
 
 api_key  = ciop.getparam('api_key')
+base_path = ciop.getparam('base_path')
 
 # add a trap to exit gracefully
 def clean_exit(exit_code):
@@ -39,7 +46,14 @@ def clean_exit(exit_code):
 def sftp_upload(product_path, hostname, user, passwd, target_dir):
 
     ciop.log('INFO', 'Connecting to %s' % hostname)
+    
+    
+    
     try:
+        
+        cnopts = pysftp.CnOpts()
+        cnopts.hostkeys = None
+        
         with pysftp.Connection(hostname, username=user, password=passwd, cnopts=cnopts) as sftp:
             sftp.makedirs(target_dir)
         with sftp.cd(target_dir):
@@ -76,9 +90,9 @@ def main():
     config = configparser.ConfigParser()
     config.readfp(buf)
 
-    hostname = config.get('sftp', 'hostname')
-    user = config.get('sftp', 'user')
-    passwd = config.get('sftp', 'passwd')
+    hostname = config.get('ftp', 'hostname')
+    user = config.get('ftp', 'user')
+    passwd = config.get('ftp', 'passwd')
     
     # Loops over all the inputs
     for input in sys.stdin:
@@ -90,11 +104,13 @@ def main():
 
         search = ciop.search(end_point = entry, 
                              params = [], 
-                             output_fields='enclosure,identifier', 
+                             output_fields='enclosure,identifier,startdate', 
                              model='GeoTime')
         
         assert(search), sys.exit(ERR_RESOLUTION)
 
+        
+        
         ciop.log('INFO', 'Retrieve %s from %s' % (search[0]['identifier'], search[0]['enclosure']))
       
         retrieved = ciop.copy(search[0]['enclosure'], 
@@ -102,7 +118,13 @@ def main():
                               extract=False)
         
         assert(retrieved), sys.exit(ERR_STAGEIN)
+        
+        # the catalog sends milliseconds with 7 digits :-(
+        
+        date_path = datetime.strptime(search[0]['startdate'][:26] + 'Z', '%Y-%m-%dT%H:%M:%S.%fZ').strftime('%Y-%m-%d')
 
+        remote_path = os.path.join(base_path, date_path)
+        
         if sftp_upload(retrieved, hostname, user, passwd, remote_path):
             
             ciop.log('INFO', '%s published' % search[0]['identifier'])
