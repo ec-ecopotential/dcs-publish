@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<application xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" id="application">
+  <jobTemplates>
+    <jobTemplate id="publish">
+      <streamingExecutable>/application/publish/run</streamingExecutable>
+      <defaultParameters>
+          <parameter id="update" type="opensearch" target="dct:modified" scope="runtime" minOccurs="0" title="Time of Interest interval" abstract="Time of Interest interval in ISO 8601 (e.g. 2018-03-12T00:00:00Z/2018-03-15T00:00:00Z)">2018-03-12T00:00:00Z/2018-03-15T00:00:00Z</parameter> 
+              <parameter id="q" type="opensearch" target="searchTerms" scope="runtime" minOccurs="0" title="Free text" abstract="Free text"></parameter> 
+              <parameter id="count" type="opensearch" target="count" scope="runtime" minOccurs="0" title="Count" abstract="Count">2</parameter>
+           <parameter id="api_key" title="Terradue API key" abstract="Terradue API key" maxOccurs="1" scope="runtime" type="LiteralData"></parameter>
+                  <parameter id="config_url" title="Configuration file" abstract="Configuration file" maxOccurs="1" scope="runtime" type="LiteralData">https://store.terradue.com/cache-test/config/cache-config.ini</parameter>
+      </defaultParameters>
+      <defaultJobconf>
+        <property id="mapred.task.timeout">99000000</property>
+      </defaultJobconf>
+    </jobTemplate>
+  </jobTemplates>
+  <workflow id="dcs-publish" title="sFTP push" abstract="sFTP push">
+    <workflowVersion>1.0</workflowVersion>
+    <node id="publish">
+      <job id="publish"/>
+      <sources>
+        <source id="series" refid="cas:series" scope="runtime" title="Catalog reference" abstract="Catalog reference">https://catalog.terradue.com//cache-test/series/ececop-00003/description</source>
+      </sources>
+    </node>
+  </workflow>
+</application>
