@@ -1,7 +1,4 @@
+.ipynb_checkpoints
+runc
 target
 __pycache__
-*.pyc
-.cache
-
-runc
-.~application.xml

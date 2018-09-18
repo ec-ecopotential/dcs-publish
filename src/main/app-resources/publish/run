@@ -2,7 +2,7 @@
 
 import sys
 import os
-import lxml.etree as et
+
 import shutil
 import tarfile
 import atexit
@@ -15,6 +15,8 @@ import pytz
 from datetime import datetime, timedelta
 import pysftp
 import traceback
+import lxml.etree as etree
+import requests
 
 sys.path.append('/opt/anaconda/bin/')
 import cioppy
@@ -48,35 +50,53 @@ def sftp_upload(product_path, hostname, user, passwd, target_dir):
 
     ciop.log('INFO', 'Connecting to %s' % hostname)
     
-    try:
+    #try:
         
-        cnopts = pysftp.CnOpts()
-        cnopts.hostkeys = None
+    cnopts = pysftp.CnOpts()
+    cnopts.hostkeys = None
         
-        with pysftp.Connection(hostname, username=user, password=passwd, cnopts=cnopts) as sftp:
-            sftp.makedirs(target_dir)
-        with sftp.cd(target_dir):
-            sftp.put(product_path, preserve_mtime=True)
+    with pysftp.Connection(hostname, username=user, password=passwd, cnopts=cnopts) as sftp:
+        sftp.makedirs(target_dir)
+        sftp.chdir(target_dir)
+        sftp.put(product_path, preserve_mtime=True)
             
-    except IOError as e:
-        #ciop.log('ERROR','I/O error({0}): {1} {2}'.format(e.errno, e.filename, e.strerror))
-        ciop.log('ERROR', 'Unexpected error: %s' % e)
-        ciop.log('ERROR', ''.join(traceback.format_stack()))
+    #except IOError as e:
+    #    #ciop.log('ERROR','I/O error({0}): {1} {2}'.format(e.errno, e.filename, e.strerror))
+    #    ciop.log('ERROR', 'Unexpected error: %s' % e)
+    #    ciop.log('ERROR', ''.join(traceback.format_stack()))
         
-        return False  
+    #    return False  
     
-    except Exception as e:
-        #ciop.log('ERROR','Unexpected error:', sys.exc_info()[0])
-        ciop.log('ERROR', 'Unexpected error: %s' % e)
-        ciop.log('ERROR', ''.join(traceback.format_stack()))
+    #except Exception as e:
+    #    #ciop.log('ERROR','Unexpected error:', sys.exc_info()[0])
+    #    ciop.log('ERROR', 'Unexpected error: %s' % e)
+    #    ciop.log('ERROR', ''.join(traceback.format_stack()))
 
-        return False  
+    #    return False  
     
     return True
 
 
 def main():
 
+    ns = {'a':'http://www.w3.org/2005/Atom', 
+      'b':'http://www.opengis.net/owc/1.0',
+      'c':'http://www.opengis.net/wps/1.0.0',
+      'd':'http://www.opengis.net/ows/1.1',
+      'f':'http://a9.com/-/opensearch/extensions/geo/1.0/'}
+
+    oss_ns = {'a':'http://www.w3.org/2001/XMLSchema', 
+      'b':'http://www.w3.org/2001/XMLSchema-instance',
+      'c':'http://a9.com/-/opensearch/extensions/time/1.0/',
+      'd':'http://www.opengis.net/eop/2.0',
+      'e':'http://purl.org/dc/terms/',
+      'f':'http://a9.com/-/spec/opensearch/extensions/parameters/1.0/',
+          'g':'http://purl.org/dc/elements/1.1/',
+          'h':'http://www.terradue.com/opensearch',
+          'i':'http://a9.com/-/opensearch/extensions/geo/1.0/',
+          'j':'http://a9.com/-/spec/opensearch/1.1/'
+          }
+    
     os.chdir(ciop.tmp_dir)
 
     config_url = ciop.getparam('config_url')
@@ -103,40 +123,75 @@ def main():
     # Loops over all the inputs
     for input in sys.stdin:
       
-        entry = string.replace(input.rstrip(), 'rdf', 'atom')
+        item_url = string.replace(input.rstrip(), 'rdf', 'atom')
         
         # report activity in log
-        ciop.log('INFO', 'The entry reference is: %s' %  entry)
+        ciop.log('INFO', 'The entry reference is: %s' %  item_url)
 
-        search = ciop.search(end_point = entry, 
-                             params = [], 
-                             output_fields='enclosure,identifier,startdate', 
-                             model='GeoTime')
+        item = etree.fromstring(requests.get(item_url).content)
         
-        assert(search), sys.exit(ERR_RESOLUTION)
+        queries = item.xpath('/a:feed/a:entry/b:offering/b:operation[@code="search"]', 
+                                 namespaces=ns)
+        
+        
+        results = []
 
+        for index, query in enumerate(queries):
+
+            # Get the URL to the Opensearch description document from the Offering
+            oss = query.getparent().xpath('./b:operation[@code="search"]', namespaces=ns)[0].attrib['href']
+    
+            # Get the restriction from the Offering
+            uid = query.getparent().xpath('.//@f:uid', namespaces=ns)
+
+            # Only process the Offerings that have a restriction
+            if uid:
+                
+                # Download the Opensearch description document
+                oss_content = etree.fromstring(requests.get(oss).content)
+    
+                # Find the query template URL for the atom format 
+                url_template_element = oss_content.xpath('/j:OpenSearchDescription/j:Url[@type="application/atom+xml"]',
+                                                 namespaces=oss_ns)[0]
+    
+                # Get the parameter name associated to the restriction
+                param_name = url_template_element.xpath('.//f:Parameter[@value="{geo:uid?}"]', 
+                                                namespaces=oss_ns)[0].attrib['name']
         
+                # Build a dictionary
+                search_params = dict([(param_name, uid[0])])
         
-        ciop.log('INFO', 'Retrieve %s from %s' % (search[0]['identifier'], search[0]['enclosure']))
-      
-        retrieved = ciop.copy(search[0]['enclosure'], 
+            
+        
+                # Append the results of the search on the Opensearch endpoint with the restrictions
+                results.append(ciop.search(end_point=oss,
+                                   params=search_params,
+                                   output_fields='self,enclosure,title,startdate', 
+                                   model='EOP')[0])
+        
+        for result in results:
+            ciop.log('INFO', 'Retrieve %s from %s' % (result['title'], result['enclosure'])) 
+            
+            retrieved = ciop.copy(result['enclosure'], 
                               ciop.tmp_dir,
-                              extract=False)
+                              extract=False) 
         
-        assert(retrieved), sys.exit(ERR_STAGEIN)
+            assert(retrieved), sys.exit(ERR_STAGEIN)
         
-        # the catalog sends milliseconds with 7 digits :-(
-        
-        date_path = datetime.strptime(search[0]['startdate'][:26] + 'Z', '%Y-%m-%dT%H:%M:%S.%fZ').strftime('%Y-%m-%d')
-
-        remote_path = os.path.join(base_path, date_path)
-        
-        if sftp_upload(retrieved, hostname, user, passwd, remote_path):
+            # the catalog sends milliseconds with 7 digits :-(
+            try:
+                date_path = datetime.strptime(results[0]['startdate'][:19] + 'Z', '%Y-%m-%dT%H:%M:%SZ').strftime('%Y-%m-%d')
+            except ValueError:
+                date_path = '2018-01-01'
             
-            ciop.log('INFO', '%s published' % search[0]['identifier'])
+            remote_path = os.path.join(base_path, date_path)
+        
+            if sftp_upload(retrieved, hostname, user, passwd, remote_path):
             
-        else:
-            sys.exit(ERR_PUBLISH)
+                ciop.log('INFO', '%s published' % result['title'])
+            
+            else:
+                sys.exit(ERR_PUBLISH)
      
 try:
     main()
